@@ -54,6 +54,49 @@ app.post("/api/habits", (req, res) => {
     res.status(201).json(newHabit);
 });
 
+app.put("/api/habits/:id", (req, res) => {
+
+    const id = parseInt(req.params.id);
+
+    const habit = habits.find((habit) => habit.id === id);
+
+    if (!habit) {
+        return res.status(404).json({
+            message: "Habit not found"
+        });
+    }
+
+    if (!req.body.name || !req.body.goal) {
+        return res.status(400).json({
+            message: "Name and goal are required"
+        });
+    }
+
+    habit.name = req.body.name;
+    habit.goal = req.body.goal;
+
+    res.json(habit);
+});
+app.delete("/api/habits/:id", (req, res) => {
+
+    const id = parseInt(req.params.id);
+
+    const index = habits.findIndex((habit) => habit.id === id);
+
+    if (index === -1) {
+        return res.status(404).json({
+            message: "Habit not found"
+        });
+    }
+
+    const deletedHabit = habits.splice(index, 1);
+
+    res.json({
+        message: "Habit deleted successfully",
+        habit: deletedHabit[0]
+    });
+});
+
 app.listen(3000, () => {
     console.log("HabitStack API is running on port 3000");
 });
