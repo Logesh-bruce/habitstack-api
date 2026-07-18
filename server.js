@@ -19,12 +19,52 @@ const habits = [
         goal: "20 minutes daily"
     }
 ];
+
 const users = [];
 
-app.get("/api/habits", (req, res) => {
+function authenticateToken(req, res, next) {
+
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader) {
+        return res.status(401).json({
+            message: "Access denied. No token provided"
+        });
+    }
+
+    const token = authHeader.split(" ")[1];
+
+    if (!token) {
+        return res.status(401).json({
+            message: "Invalid token format"
+        });
+    }
+
+    try {
+
+        const decoded = jwt.verify(token, JWT_SECRET);
+
+        req.userId = decoded.userId;
+
+        next();
+
+    } catch (error) {
+
+        return res.status(403).json({
+            message: "Invalid or expired token"
+        });
+    }
+}
+
+
+app.get("/api/habits", authenticateToken, (req, res) => {
+
     res.json(habits);
+
 });
-app.get("/api/habits/:id", (req, res) => {
+
+
+app.get("/api/habits/:id", authenticateToken, (req, res) => {
 
     const id = parseInt(req.params.id);
 
@@ -37,10 +77,11 @@ app.get("/api/habits/:id", (req, res) => {
     }
 
     res.json(habit);
+
 });
 
 
-app.post("/api/habits", (req, res) => {
+app.post("/api/habits", authenticateToken, (req, res) => {
 
     if (!req.body.name || !req.body.goal) {
         return res.status(400).json({
@@ -57,9 +98,11 @@ app.post("/api/habits", (req, res) => {
     habits.push(newHabit);
 
     res.status(201).json(newHabit);
+
 });
 
-app.put("/api/habits/:id", (req, res) => {
+
+app.put("/api/habits/:id", authenticateToken, (req, res) => {
 
     const id = parseInt(req.params.id);
 
@@ -81,8 +124,11 @@ app.put("/api/habits/:id", (req, res) => {
     habit.goal = req.body.goal;
 
     res.json(habit);
+
 });
-app.delete("/api/habits/:id", (req, res) => {
+
+
+app.delete("/api/habits/:id", authenticateToken, (req, res) => {
 
     const id = parseInt(req.params.id);
 
@@ -100,7 +146,9 @@ app.delete("/api/habits/:id", (req, res) => {
         message: "Habit deleted successfully",
         habit: deletedHabit[0]
     });
+
 });
+
 
 app.post("/api/auth/register", async (req, res) => {
 
@@ -120,7 +168,6 @@ app.post("/api/auth/register", async (req, res) => {
         });
     }
 
-    // Hash the password before storing it
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const newUser = {
@@ -132,7 +179,6 @@ app.post("/api/auth/register", async (req, res) => {
 
     users.push(newUser);
 
-    // Don't return the password in the response
     res.status(201).json({
         message: "User registered successfully",
         user: {
@@ -141,20 +187,20 @@ app.post("/api/auth/register", async (req, res) => {
             email: newUser.email
         }
     });
+
 });
+
 
 app.post("/api/auth/login", async (req, res) => {
 
     const { email, password } = req.body;
 
-    // Check required fields
     if (!email || !password) {
         return res.status(400).json({
             message: "Email and password are required"
         });
     }
 
-    // Find user by email
     const user = users.find((user) => user.email === email);
 
     if (!user) {
@@ -163,7 +209,6 @@ app.post("/api/auth/login", async (req, res) => {
         });
     }
 
-    // Compare entered password with stored hashed password
     const passwordMatch = await bcrypt.compare(password, user.password);
 
     if (!passwordMatch) {
@@ -172,21 +217,23 @@ app.post("/api/auth/login", async (req, res) => {
         });
     }
 
-const token = jwt.sign(
-    {
-        userId: user.id
-    },
-    JWT_SECRET,
-    {
-        expiresIn: "1h"
-    }
-);
+    const token = jwt.sign(
+        {
+            userId: user.id
+        },
+        JWT_SECRET,
+        {
+            expiresIn: "1h"
+        }
+    );
 
     res.status(200).json({
         message: "Login successful",
-       token: token
+        token: token
     });
+
 });
+
 
 app.listen(3000, () => {
     console.log("HabitStack API is running on port 3000");
