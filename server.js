@@ -1,6 +1,10 @@
 const express = require("express");
+const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
 
 const app = express();
+const JWT_SECRET = "habitstack-secret-key";
+
 app.use(express.json());
 
 const habits = [
@@ -15,6 +19,7 @@ const habits = [
         goal: "20 minutes daily"
     }
 ];
+const users = [];
 
 app.get("/api/habits", (req, res) => {
     res.json(habits);
@@ -94,6 +99,92 @@ app.delete("/api/habits/:id", (req, res) => {
     res.json({
         message: "Habit deleted successfully",
         habit: deletedHabit[0]
+    });
+});
+
+app.post("/api/auth/register", async (req, res) => {
+
+    const { name, email, password } = req.body;
+
+    if (!name || !email || !password) {
+        return res.status(400).json({
+            message: "Name, email and password are required"
+        });
+    }
+
+    const existingUser = users.find((user) => user.email === email);
+
+    if (existingUser) {
+        return res.status(400).json({
+            message: "User already exists"
+        });
+    }
+
+    // Hash the password before storing it
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const newUser = {
+        id: users.length + 1,
+        name: name,
+        email: email,
+        password: hashedPassword
+    };
+
+    users.push(newUser);
+
+    // Don't return the password in the response
+    res.status(201).json({
+        message: "User registered successfully",
+        user: {
+            id: newUser.id,
+            name: newUser.name,
+            email: newUser.email
+        }
+    });
+});
+
+app.post("/api/auth/login", async (req, res) => {
+
+    const { email, password } = req.body;
+
+    // Check required fields
+    if (!email || !password) {
+        return res.status(400).json({
+            message: "Email and password are required"
+        });
+    }
+
+    // Find user by email
+    const user = users.find((user) => user.email === email);
+
+    if (!user) {
+        return res.status(401).json({
+            message: "Invalid email or password"
+        });
+    }
+
+    // Compare entered password with stored hashed password
+    const passwordMatch = await bcrypt.compare(password, user.password);
+
+    if (!passwordMatch) {
+        return res.status(401).json({
+            message: "Invalid email or password"
+        });
+    }
+
+const token = jwt.sign(
+    {
+        userId: user.id
+    },
+    JWT_SECRET,
+    {
+        expiresIn: "1h"
+    }
+);
+
+    res.status(200).json({
+        message: "Login successful",
+       token: token
     });
 });
 
